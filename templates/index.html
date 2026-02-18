@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Calma Colectiva 🌿</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Leaflet para mapas -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map { height: 400px; margin-top: 20px; }
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        input { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Calma Colectiva 🌿</h1>
+
+    <form id="formUsuario">
+        Nombre: <input type="text" id="nombre" required><br>
+        Nivel de Calma (1-10): <input type="number" id="nivel" min="1" max="10" required><br>
+        <button type="submit">Agregar</button>
+    </form>
+
+    <div id="map"></div>
+
+    <script>
+        const map = L.map('map').setView([-34.9011, -56.1645], 13); // Centro inicial Montevideo
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data © <a href="https://openstreetmap.org">OpenStreetMap</a>'
+        }).addTo(map);
+
+        // Función para cargar usuarios desde el backend
+        function cargarUsuarios() {
+            fetch("http://127.0.0.1:8000/usuarios/")
+                .then(res => res.json())
+                .then(data => {
+                    // Limpiar todos los markers
+                    map.eachLayer(layer => {
+                        if (layer.options && layer.options.pane === 'markerPane') map.removeLayer(layer);
+                    });
+
+                    data.forEach(u => {
+                        L.marker([u.latitud, u.longitud])
+                            .addTo(map)
+                            .bindPopup(`${u.nombre} 🌿 Nivel de calma: ${u.nivel_de_calma}`);
+                    });
+                });
+        }
+
+        // Inicializa mapa con usuarios existentes
+        cargarUsuarios();
+
+        document.getElementById("formUsuario").addEventListener("submit", function(e) {
+            e.preventDefault();
+
+            // Pedir ubicación GPS
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(pos) {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+
+                    const nombre = document.getElementById("nombre").value;
+                    const nivel = parseInt(document.getElementById("nivel").value);
+
+                    fetch("http://127.0.0.1:8000/usuarios/", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            id: Date.now(),   // ID único basado en tiempo
+                            nombre: nombre,
+                            latitud: lat,
+                            longitud: lon,
+                            nivel_de_calma: nivel
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        alert("Usuario agregado ✅");
+                        cargarUsuarios(); // Refresca mapa
+                    });
+
+                }, function(err) {
+                    alert("No se pudo obtener la ubicación: " + err.message);
+                });
+            } else {
+                alert("Tu navegador no soporta geolocalización");
+            }
+        });
+    </script>
+</body>
+</html>
